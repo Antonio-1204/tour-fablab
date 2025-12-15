@@ -2,28 +2,106 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Tour FabLab - VR Quest 3S</title>
+    <title>Tour FabLab - Completo Pro</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
 
     <script>
-      // SCRIPT DE COMPORTAMIENTO (Optimizado para Mouse y Láser VR)
+      // =================================================================
+      // COMPONENTE 1: COMPORTAMIENTO VISUAL (HOVER, ESCALA Y COLOR)
+      // =================================================================
       AFRAME.registerComponent('hotspot-behavior', {
         init: function () {
           var el = this.el;
-          var tooltip = el.querySelector('.tooltip');
-          
-          // Funciona cuando el láser del Quest o el mouse tocan el objeto
+          // Guardamos el color original para saber si es un círculo rojo o una foto
+          var originalColor = el.getAttribute('color'); 
+
+          // --- Al entrar con el cursor ---
           el.addEventListener('mouseenter', function () {
-            el.setAttribute('scale', '1.3 1.3 1.3'); 
-            el.setAttribute('color', '#FF5555'); 
-            if(tooltip) tooltip.setAttribute('visible', 'true');
+            // Efecto de crecimiento (Pop)
+            el.setAttribute('scale', '1.2 1.2 1.2'); 
+            
+            // SOLO si el objeto era rojo originalmente, lo ponemos rojo claro
+            if (originalColor === '#CC0000') {
+               el.setAttribute('color', '#FF5555'); 
+            }
+            
+            // Mostrar Tooltip (si tiene)
+            var tooltip = el.querySelector('.tooltip');
+            if(tooltip) tooltip.setAttribute('visible', true);
+            
+            // Resaltar Texto del Banner (si tiene, buscando en el padre)
+            var bannerText = el.parentNode.querySelector('.banner-text');
+            if(bannerText) bannerText.setAttribute('color', '#FFEB3B'); // Amarillo
           });
 
+          // --- Al salir el cursor ---
           el.addEventListener('mouseleave', function () {
+            // Volver a tamaño normal
             el.setAttribute('scale', '1 1 1'); 
-            el.setAttribute('color', '#CC0000');
-            if(tooltip) tooltip.setAttribute('visible', 'false');
+
+            // Restaurar color rojo oscuro (solo si era rojo)
+            if (originalColor === '#CC0000') {
+               el.setAttribute('color', '#CC0000');
+            }
+
+            // Ocultar Tooltip
+            var tooltip = el.querySelector('.tooltip');
+            if(tooltip) tooltip.setAttribute('visible', false);
+
+            // Restaurar Texto del Banner a blanco
+            var bannerText = el.parentNode.querySelector('.banner-text');
+            if(bannerText) bannerText.setAttribute('color', '#FFFFFF');
+          });
+        }
+      });
+
+      // =================================================================
+      // COMPONENTE 2: TRANSICIÓN Y CAMBIO DE GRUPOS (LÓGICA DEL TOUR)
+      // =================================================================
+      AFRAME.registerComponent('transition-to-image', {
+        schema: {
+          target: {type: 'string', default: ''},       // ID de la nueva imagen 360
+          groupToHide: {type: 'string', default: ''},  // ID del grupo a ocultar (ej: #grupo-fablab)
+          groupToShow: {type: 'string', default: ''}   // ID del grupo a mostrar (ej: #grupo-entrada)
+        },
+        init: function () {
+          var el = this.el;
+          var data = this.data;
+          
+          el.addEventListener('click', function () {
+            var sky = document.querySelector('a-sky');
+            var fadeSphere = document.querySelector('#fade-sphere');
+            
+            // 1. Activar esfera negra y hacer Fade-Out (Oscurecer)
+            fadeSphere.setAttribute('visible', true);
+            fadeSphere.emit('fade-out');
+
+            // 2. Esperar 1000ms (1 segundo) mientras está oscuro
+            setTimeout(function() {
+              
+              // A. Cambiar la imagen 360 del cielo
+              sky.setAttribute('src', data.target);
+              
+              // B. Ocultar los iconos de la sala actual
+              if(data.groupToHide) {
+                document.querySelector(data.groupToHide).setAttribute('visible', false);
+              }
+
+              // C. Mostrar los iconos de la nueva sala
+              if(data.groupToShow) {
+                document.querySelector(data.groupToShow).setAttribute('visible', true);
+              }
+              
+              // 3. Hacer Fade-In (Aclarar)
+              fadeSphere.emit('fade-in');
+
+              // 4. Desactivar esfera negra para que no bloquee clicks
+              setTimeout(function(){
+                 fadeSphere.setAttribute('visible', false);
+              }, 1000);
+
+            }, 1000); 
           });
         }
       });
@@ -31,107 +109,118 @@
   </head>
   
   <body>
-    <a-scene renderer="colorManagement: true;"> 
+    <a-scene renderer="colorManagement: true; antialias: true;"> 
 
       <a-assets>
-        <img id="sky-texture" src="textures/FabLab.jpg">
+        <img id="img-fablab" src="textures/FabLab.jpg">
+        <img id="img-entrada" src="textures/FabLab Entrada.jpg"> 
+        
+        <img id="thumb-fablab" src="textures/FabLab.jpg">
+        <img id="thumb-entrada" src="textures/FabLab Entrada.jpg">
       </a-assets>
 
+
       <a-entity id="rig" position="0 0 0">
-        
         <a-camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
-          <a-cursor 
-            color="white" 
-            scale="0.5 0.5 0.5" 
-            raycaster="objects: .clickable"
-            fuse="false">
-          </a-cursor>
+          
+          <a-cursor color="white" scale="0.5 0.5 0.5" raycaster="objects: .clickable" fuse="false"></a-cursor>
+          
+          <a-sphere id="fade-sphere" visible="false" radius="0.1" material="color: black; opacity: 0; shader: flat; side: double; transparent: true" 
+            animation__out="property: material.opacity; from: 0; to: 1; dur: 1000; startEvents: fade-out" 
+            animation__in="property: material.opacity; from: 1; to: 0; dur: 1000; startEvents: fade-in; delay: 200">
+          </a-sphere>
+
         </a-camera>
 
-        <a-entity 
-            laser-controls="hand: left" 
-            raycaster="objects: .clickable; far: 10; lineColor: red; lineOpacity: 0.5">
-        </a-entity>
-        <a-entity 
-            laser-controls="hand: right" 
-            raycaster="objects: .clickable; far: 10; lineColor: red; lineOpacity: 0.5">
-        </a-entity>
-
+        <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 10; lineColor: red; lineOpacity: 0.5"></a-entity>
+        <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 10; lineColor: red; lineOpacity: 0.5"></a-entity>
       </a-entity>
 
-      <a-sky src="#sky-texture" rotation="0 -130 0"></a-sky>
+      <a-sky src="#img-fablab" rotation="0 -130 0"></a-sky>
 
-      <a-circle color="#CC0000" radius="0.12" position="-2.80 -0.6 -2.04" look-at="[camera]" hotspot-behavior class="clickable">
-        <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text>
-        <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
-        <a-entity class="tooltip" position="0 0.25 0" visible="false">
-           <a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane>
-           <a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text>
-        </a-entity>
-      </a-circle>
 
-      <a-circle color="#CC0000" radius="0.12" position="0.75 -0 -3.65" look-at="[camera]" hotspot-behavior class="clickable">
-        <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text>
-        <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
-        <a-entity class="tooltip" position="0 0.25 0" visible="false">
-           <a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane>
-           <a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text>
-        </a-entity>
-      </a-circle>
+      <a-entity id="grupo-fablab" visible="true">
 
-      <a-circle color="#CC0000" radius="0.12" position="3.8 0.2 0.3" look-at="[camera]" hotspot-behavior class="clickable">
-        <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text>
-        <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
-        <a-entity class="tooltip" position="0 0.25 0" visible="false">
-           <a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane>
-           <a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text>
-        </a-entity>
-      </a-circle>
+          <a-entity position="-3.95 1.40 -1.08" look-at="[camera]">
+              <a-entity position="0 0.28 0">
+                 <a-plane color="#000000" opacity="0.8" width="0.9" height="0.22" shader="flat"></a-plane>
+                 <a-text class="banner-text" value="FabLab Entrada" font="roboto" align="center" color="#FFFFFF" width="6" wrap-count="30" scale="0.3 0.3 0.3" position="0 0 0.02"></a-text>
+              </a-entity>
+              <a-entity position="0 0 0">
+                 <a-circle color="white" radius="0.16" position="0 0 -0.01" shader="flat"></a-circle>
+                 <a-circle 
+                    src="#thumb-entrada" 
+                    radius="0.14" position="0 0 0" 
+                    class="clickable" hotspot-behavior
+                    transition-to-image="target: #img-entrada; groupToHide: #grupo-fablab; groupToShow: #grupo-entrada">
+                </a-circle>
+                 <a-triangle color="white" vertex-a="0 -0.22 0" vertex-b="-0.05 -0.1 0" vertex-c="0.05 -0.1 0" position="0 0 -0.01" shader="flat"></a-triangle>
+              </a-entity>
+          </a-entity>
 
-      <a-circle color="#CC0000" radius="0.12" position="3.22 0 1.66" look-at="[camera]" hotspot-behavior class="clickable">
-        <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text>
-        <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
-        <a-entity class="tooltip" position="0 0.25 0" visible="false">
-           <a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane>
-           <a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text>
-        </a-entity>
-      </a-circle>
+          <a-circle color="#CC0000" radius="0.12" position="-2.80 -0.6 -2.04" look-at="[camera]" hotspot-behavior class="clickable">
+            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+          </a-circle>
 
-      <a-circle color="#CC0000" radius="0.12" position="2.00 -0.2 3.05" look-at="[camera]" hotspot-behavior class="clickable">
-        <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text>
-        <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
-        <a-entity class="tooltip" position="0 0.25 0" visible="false">
-           <a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane>
-           <a-text value="Impresora 3D" align="center" width="2.3" position="0 0 0.02"></a-text>
-        </a-entity>
-      </a-circle>
+          <a-circle color="#CC0000" radius="0.12" position="0.75 -0 -3.65" look-at="[camera]" hotspot-behavior class="clickable">
+            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+          </a-circle>
 
-      <a-circle color="#CC0000" radius="0.12" position="-0.00 0.5 3.85" look-at="[camera]" hotspot-behavior class="clickable">
-        <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text>
-        <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
-        <a-entity class="tooltip" position="0 0.25 0" visible="false">
-           <a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane>
-           <a-text value="Brazo Robot" align="center" width="2.3" position="0 0 0.02"></a-text>
-        </a-entity>
-      </a-circle>
+          <a-circle color="#CC0000" radius="0.12" position="3.8 0.2 0.3" look-at="[camera]" hotspot-behavior class="clickable">
+            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+          </a-circle>
 
-      <a-circle color="#CC0000" radius="0.12" position="-1.47 0.1 -3.85" look-at="[camera]" hotspot-behavior class="clickable">
-        <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text>
-        <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
-        <a-entity class="tooltip" position="0 0.25 0" visible="false">
-           <a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane>
-           <a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text>
-        </a-entity>
-      </a-circle>
+          <a-circle color="#CC0000" radius="0.12" position="3.22 0 1.66" look-at="[camera]" hotspot-behavior class="clickable">
+            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+          </a-circle>
 
-      <a-circle color="#CC0000" radius="0.12" position="-0.14 0.7 -3.85" look-at="[camera]" hotspot-behavior class="clickable">
-        <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text>
-        <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
-        <a-entity class="tooltip" position="0 0.25 0" visible="false">
-           <a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane>
-           <a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text>
-        </a-entity>
-      </a-circle>
+          <a-circle color="#CC0000" radius="0.12" position="2.00 -0.2 3.05" look-at="[camera]" hotspot-behavior class="clickable">
+            <a-text value="🖨️" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Impresora 3D" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+          </a-circle>
+
+          <a-circle color="#CC0000" radius="0.12" position="-0.00 0.5 3.85" look-at="[camera]" hotspot-behavior class="clickable">
+            <a-text value="🤖" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Brazo Robot" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+          </a-circle>
+
+          <a-circle color="#CC0000" radius="0.12" position="-1.47 0.1 -3.85" look-at="[camera]" hotspot-behavior class="clickable">
+            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+          </a-circle>
+
+          <a-circle color="#CC0000" radius="0.12" position="-0.14 0.7 -3.85" look-at="[camera]" hotspot-behavior class="clickable">
+            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+          </a-circle>
+
+      </a-entity> 
+
+
+      <a-entity id="grupo-entrada" visible="false">
+
+          <a-entity position="-1.30 1.50 -3.50" look-at="[camera]">
+              <a-entity position="0 0.28 0">
+                 <a-plane color="#000000" opacity="0.8" width="0.9" height="0.22" shader="flat"></a-plane>
+                 <a-text class="banner-text" value="FabLab" font="roboto" align="center" color="#FFFFFF" width="6" wrap-count="30" scale="0.25 0.25 0.25" position="0 0 0.02"></a-text>
+              </a-entity>
+              <a-entity position="0 0 0">
+                 <a-circle color="white" radius="0.16" position="0 0 -0.01" shader="flat"></a-circle>
+                 <a-circle 
+                    src="#thumb-fablab" 
+                    radius="0.14" position="0 0 0" 
+                    class="clickable" hotspot-behavior
+                    transition-to-image="target: #img-fablab; groupToHide: #grupo-entrada; groupToShow: #grupo-fablab">
+                </a-circle>
+                 <a-triangle color="white" vertex-a="0 -0.22 0" vertex-b="-0.05 -0.1 0" vertex-c="0.05 -0.1 0" position="0 0 -0.01" shader="flat"></a-triangle>
+              </a-entity>
+          </a-entity>
+
+      </a-entity>
 
     </a-scene>
   </body>

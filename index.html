@@ -2,13 +2,13 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Tour FabLab</title>
+    <title>Tour FabLab - Estable</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
 
     <script>
       // =================================================================
-      // NUEVO COMPONENTE: LOGO QUE GIRA CON LA CÁMARA (Nadir Follow)
+      // COMPONENTE: LOGO SUELO
       // =================================================================
       AFRAME.registerComponent('rotate-with-camera', {
         tick: function () {
@@ -20,41 +20,7 @@
       });
 
       // =================================================================
-      // COMPONENTE 1: COMPORTAMIENTO VISUAL
-      // =================================================================
-      AFRAME.registerComponent('hotspot-behavior', {
-        init: function () {
-          var el = this.el;
-          var originalColor = el.getAttribute('color'); 
-
-          el.addEventListener('mouseenter', function () {
-            if (originalColor === '#CC0000') {
-               el.setAttribute('color', '#FF5555'); 
-            }
-            
-            var tooltip = el.querySelector('.tooltip');
-            if(tooltip) tooltip.setAttribute('visible', true);
-            
-            var bannerText = el.parentNode.querySelector('.banner-text');
-            if(bannerText) bannerText.setAttribute('color', '#FFEB3B'); 
-          });
-
-          el.addEventListener('mouseleave', function () {
-            if (originalColor === '#CC0000') {
-               el.setAttribute('color', '#CC0000');
-            }
-
-            var tooltip = el.querySelector('.tooltip');
-            if(tooltip) tooltip.setAttribute('visible', false);
-
-            var bannerText = el.parentNode.querySelector('.banner-text');
-            if(bannerText) bannerText.setAttribute('color', '#FFFFFF');
-          });
-        }
-      });
-
-      // =================================================================
-      // COMPONENTE 2: TRANSICIÓN
+      // COMPONENTE: TRANSICIÓN
       // =================================================================
       AFRAME.registerComponent('transition-to-image', {
         schema: {
@@ -77,25 +43,93 @@
 
             setTimeout(function() {
               sky.setAttribute('src', data.target);
-              
               if(data.groupToHide) document.querySelector(data.groupToHide).setAttribute('visible', false);
               if(data.groupToShow) document.querySelector(data.groupToShow).setAttribute('visible', true);
+              if(data.rotation) cameraRig.setAttribute('rotation', data.rotation); 
               
-              if(data.rotation) {
-                cameraRig.setAttribute('rotation', data.rotation); 
-              }
-
               fadeSphere.emit('fade-in');
               setTimeout(function(){ fadeSphere.setAttribute('visible', false); }, 1000);
             }, 1000); 
           });
         }
       });
+
+      // =================================================================
+      // COMPONENTE: HOVER (Sin escala para evitar mareos)
+      // =================================================================
+      AFRAME.registerComponent('hotspot-behavior', {
+        init: function () {
+          var el = this.el;
+          var originalColor = el.getAttribute('color'); 
+          // Guardamos la escala original definida en el HTML
+          var originalScale = el.getAttribute('scale'); 
+
+          el.addEventListener('mouseenter', function () {
+            if (originalColor === '#CC0000') {
+               el.setAttribute('color', '#FF5555'); 
+               // ELIMINADO: el.setAttribute('scale', ...) para evitar mareos
+            }
+            
+            var tooltip = el.querySelector('.tooltip');
+            var popup = el.querySelector('.popup-content');
+            
+            // Solo mostramos el tooltip si el popup grande NO está abierto
+            if(tooltip && (!popup || popup.getAttribute('visible') == false)) {
+                tooltip.setAttribute('visible', true);
+            }
+          });
+
+          el.addEventListener('mouseleave', function () {
+            if (originalColor === '#CC0000') {
+               el.setAttribute('color', '#CC0000');
+            }
+
+            var tooltip = el.querySelector('.tooltip');
+            if(tooltip) tooltip.setAttribute('visible', false);
+          });
+        }
+      });
+
+      // =================================================================
+      // COMPONENTE: PANEL DE INFORMACIÓN (CLIC Y CIERRE)
+      // =================================================================
+      AFRAME.registerComponent('info-panel', {
+        init: function () {
+          var el = this.el; 
+          var popup = el.querySelector('.popup-content'); 
+          var tooltip = el.querySelector('.tooltip'); 
+          var closeBtn = el.querySelector('.close-btn'); 
+
+          // ABRIR POPUP
+          el.addEventListener('click', function (evt) {
+            // Si el clic fue en el botón de cerrar, ignoramos este evento
+            if (evt.target.classList.contains('close-btn') || evt.target.parentNode.classList.contains('close-btn')) return;
+            
+            if(popup) {
+                popup.setAttribute('visible', true);
+                // Ocultamos la etiqueta pequeña inmediatamente
+                if(tooltip) tooltip.setAttribute('visible', false);
+            }
+            el.setAttribute('color', '#FF5555'); 
+          });
+
+          // CERRAR POPUP
+          if (closeBtn) {
+            closeBtn.addEventListener('click', function (evt) {
+              evt.stopPropagation(); // Evita que el clic active el hotspot de nuevo
+              popup.setAttribute('visible', false);
+              el.setAttribute('color', '#CC0000');
+              // NOTA: No volvemos a activar el tooltip aquí para mantener la vista limpia
+              // El usuario debe salir y entrar con el mouse para verlo de nuevo.
+            });
+          }
+        }
+      });
     </script>
   </head>
   
   <body>
-    <a-scene renderer="colorManagement: true; antialias: true;" cursor="rayOrigin: mouse" raycaster="objects: .clickable"> 
+    <a-scene renderer="colorManagement: true; antialias: true;" cursor="rayOrigin: mouse" raycaster="objects: .clickable, .close-btn"> 
 
       <a-assets>
         <img id="img-fablab" src="textures/FabLab.jpg">
@@ -114,31 +148,20 @@
             animation__in="property: material.opacity; from: 1; to: 0; dur: 1000; startEvents: fade-in; delay: 200">
           </a-sphere>
         </a-camera>
-        <a-entity laser-controls="hand: left; model: true" raycaster="objects: .clickable; far: 20; lineColor: red; lineOpacity: 0.7"></a-entity>
-        <a-entity laser-controls="hand: right; model: true" raycaster="objects: .clickable; far: 20; lineColor: red; lineOpacity: 0.7"></a-entity>
+        <a-entity laser-controls="hand: left; model: true" raycaster="objects: .clickable, .close-btn; far: 20; lineColor: red; lineOpacity: 0.7"></a-entity>
+        <a-entity laser-controls="hand: right; model: true" raycaster="objects: .clickable, .close-btn; far: 20; lineColor: red; lineOpacity: 0.7"></a-entity>
       </a-entity>
 
       <a-sky src="#img-fablab" rotation="0 -130 0"></a-sky>
 
       <a-entity rotate-with-camera position="0 0.01 0">
-          <a-circle 
-            src="#logo-suelo" 
-            radius="0.4" 
-            position="0 0 0" 
-            rotation="-90 0 0"
-            material="transparent: true; opacity: 0.9"
-            shader="flat">
-          </a-circle>
+          <a-circle src="#logo-suelo" radius="0.4" position="0 0 0" rotation="-90 0 0" material="transparent: true; opacity: 0.9" shader="flat"></a-circle>
       </a-entity>
-
 
       <a-entity id="grupo-fablab" visible="true">
 
           <a-entity position="-3.95 1.40 -1.08" look-at="[camera]">
-              <a-entity position="0 0.28 0">
-                  <a-plane color="#000000" opacity="0.8" width="0.9" height="0.22" shader="flat"></a-plane>
-                  <a-text class="banner-text" value="Ir a Entrada" font="roboto" align="center" color="#FFFFFF" width="6" wrap-count="30" scale="0.3 0.3 0.3" position="0 0 0.02"></a-text>
-              </a-entity>
+              <a-entity position="0 0.28 0"><a-plane color="#000000" opacity="0.8" width="0.9" height="0.22" shader="flat"></a-plane><a-text class="banner-text" value="Ir a Entrada" font="roboto" align="center" color="#FFFFFF" width="6" wrap-count="30" scale="0.3 0.3 0.3" position="0 0 0.02"></a-text></a-entity>
               <a-entity position="0 0 0" scale="1 1 1">
                   <a-circle color="white" radius="0.16" position="0 0 -0.01" shader="flat"></a-circle>
                   <a-circle src="#thumb-entrada" radius="0.14" position="0 0 0" class="clickable" hotspot-behavior transition-to-image="target: #img-entrada; groupToHide: #grupo-fablab; groupToShow: #grupo-entrada"></a-circle>
@@ -146,11 +169,8 @@
               </a-entity>
           </a-entity>
           
-          <a-entity position="0.80 1.50 2.25" look-at="[camera]">
-              <a-entity position="0 0.22 0">
-                  <a-plane color="#000000" opacity="0.8" width="0.6" height="0.15" shader="flat"></a-plane>
-                  <a-text class="banner-text" value="Area de Trabajo" font="roboto" align="center" color="#FFFFFF" width="4" wrap-count="30" scale="0.3 0.3 0.3" position="0 0 0.02"></a-text>
-              </a-entity>
+          <a-entity position="0.80 1.50 2.50" look-at="[camera]">
+              <a-entity position="0 0.22 0"><a-plane color="#000000" opacity="0.8" width="0.9" height="0.22" shader="flat"></a-plane><a-text class="banner-text" value="Area de Trabajo" font="roboto" align="center" color="#FFFFFF" width="6" wrap-count="30" scale="0.3 0.3 0.3" position="0 0 0.02"></a-text></a-entity>
               <a-entity position="0 0 0" scale="0.7 0.7 0.7">
                   <a-circle color="white" radius="0.16" position="0 0 -0.01" shader="flat"></a-circle>
                   <a-circle src="#thumb-trabajo" radius="0.14" position="0 0 0" class="clickable" hotspot-behavior transition-to-image="target: #img-trabajo; groupToHide: #grupo-fablab; groupToShow: #grupo-trabajo; rotation: 0 -130 0"></a-circle>
@@ -158,79 +178,134 @@
               </a-entity>
           </a-entity>
 
-          <a-circle color="#CC0000" radius="0.12" position="-2.80 -0.6 -2.04" scale="1 1 1" look-at="[camera]" hotspot-behavior class="clickable">
-            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+          <a-circle color="#CC0000" radius="0.12" position="-2.80 -0.6 -2.04" scale="1 1 1" look-at="[camera]" hotspot-behavior info-panel class="clickable">
+            <a-text value="+" align="center" width="4" position="0 0 0.05"></a-text>
+            <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            
             <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+
+            <a-entity class="popup-content" visible="false" position="0 0.8 0.1">
+                <a-plane color="#111" opacity="0.95" width="1.8" height="1.4" shader="flat"></a-plane>
+                <a-plane class="close-btn" color="#AA0000" width="0.25" height="0.25" position="0.7 0.55 0.02" shader="flat"><a-text value="X" align="center" width="6"></a-text></a-plane>
+                <a-text value="ESPECIFICACIONES\n\n Pertenece a: Trabajador\nModelo: Dell Latitude\nProcesador: Intel Core i5\nRAM: 8 GB DDR4\nAlmacenamiento: 256GB SSD\nGrafica: Intel UHD Graphics" 
+                        align="left" width="1.6" position="-0.75 0 0.02" wrap-count="25" color="white"></a-text>
+            </a-entity>
           </a-circle>
           
-          <a-circle color="#CC0000" radius="0.12" position="0.75 -0 -3.65" scale="1 1 1" look-at="[camera]" hotspot-behavior class="clickable">
-            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+          <a-circle color="#CC0000" radius="0.12" position="0.75 -0 -3.65" scale="1 1 1" look-at="[camera]" hotspot-behavior info-panel class="clickable">
+            <a-text value="+" align="center" width="4" position="0 0 0.05"></a-text>
+            <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            
             <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+
+            <a-entity class="popup-content" visible="false" position="0 0.8 0.1">
+                <a-plane color="#111" opacity="0.95" width="1.8" height="1.4"></a-plane>
+                <a-plane class="close-btn" color="#AA0000" width="0.25" height="0.25" position="0.7 0.55 0.02"><a-text value="X" align="center" width="6"></a-text></a-plane>
+                <a-text value="ESPECIFICACIONES\n\n Pertenece a: Trabajador\nModelo: Dell Precision\nProcesador: Intel Core i7\nRAM: 16 GB\nAlmacenamiento: 512GB SSD\nGrafica: Intel Iris Xe" 
+                        align="left" width="1.6" position="-0.75 0 0.02" wrap-count="25"></a-text>
+            </a-entity>
           </a-circle>
 
-          <a-circle color="#CC0000" radius="0.12" position="3.8 0.2 0.3" scale="1 1 1" look-at="[camera]" hotspot-behavior class="clickable">
-            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+          <a-circle color="#CC0000" radius="0.12" position="3.8 0.2 0.3" scale="1 1 1" look-at="[camera]" hotspot-behavior info-panel class="clickable">
+            <a-text value="+" align="center" width="4" position="0 0 0.05"></a-text>
+            <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            
             <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+
+            <a-entity class="popup-content" visible="false" position="0 0.8 0.1">
+                <a-plane color="#111" opacity="0.95" width="1.8" height="1.4"></a-plane>
+                <a-plane class="close-btn" color="#AA0000" width="0.25" height="0.25" position="0.7 0.55 0.02"><a-text value="X" align="center" width="6"></a-text></a-plane>
+                <a-text value="ESPECIFICACIONES\n\n Pertenece a: Trabajador\nModelo: Dell Vostro\nProcesador: Intel Core i3\nRAM: 8 GB\nAlmacenamiento: 256GB SSD\nGrafica: Intel UHD Graphics" 
+                        align="left" width="1.6" position="-0.75 0 0.02" wrap-count="25"></a-text>
+            </a-entity>
           </a-circle>
 
-          <a-circle color="#CC0000" radius="0.12" position="3.22 0 1.66" scale="1 1 1" look-at="[camera]" hotspot-behavior class="clickable">
-            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+          <a-circle color="#CC0000" radius="0.12" position="3.22 0 1.66" scale="1 1 1" look-at="[camera]" hotspot-behavior info-panel class="clickable">
+            <a-text value="+" align="center" width="4" position="0 0 0.05"></a-text>
+            <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            
             <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+
+            <a-entity class="popup-content" visible="false" position="0 0.8 0.1">
+                <a-plane color="#111" opacity="0.95" width="1.8" height="1.4"></a-plane>
+                <a-plane class="close-btn" color="#AA0000" width="0.25" height="0.25" position="0.7 0.55 0.02"><a-text value="X" align="center" width="6"></a-text></a-plane>
+                <a-text value="ESPECIFICACIONES\n\n Pertenece a: Trabajador\nModelo: Dell Latitude\nProcesador: Intel Core i5\nRAM: 8 GB\nAlmacenamiento: 512GB HDD\nGrafica: Intel UHD Graphics" 
+                        align="left" width="1.6" position="-0.75 0 0.02" wrap-count="25"></a-text>
+            </a-entity>
           </a-circle>
 
-          <a-circle color="#CC0000" radius="0.12" position="2.00 -0.2 3.05" scale="1 1 1" look-at="[camera]" hotspot-behavior class="clickable">
-            <a-text value="🖨️" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+          <a-circle color="#CC0000" radius="0.12" position="2.00 -0.2 3.05" scale="1 1 1" look-at="[camera]" hotspot-behavior info-panel class="clickable">
+            <a-text value="P" align="center" width="4" position="0 0 0.05"></a-text>
+            <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            
             <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Impresora 3D" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+
+            <a-entity class="popup-content" visible="false" position="0 0.8 0.1">
+                <a-plane color="#111" opacity="0.95" width="1.8" height="1.4"></a-plane>
+                <a-plane class="close-btn" color="#AA0000" width="0.25" height="0.25" position="0.7 0.55 0.02"><a-text value="X" align="center" width="6"></a-text></a-plane>
+                <a-text value="ESPECIFICACIONES\n\n Pertenece a: FabLab\nTecnologia: FDM\nMaterial: PLA / ABS / PETG\nVolumen: 250x250x300mm\nBoquilla: 0.4mm Estándar\nTemp Max: 260°C"
+                        align="left" width="1.6" position="-0.75 0 0.02" wrap-count="25"></a-text>
+            </a-entity>
           </a-circle>
 
-          <a-circle color="#CC0000" radius="0.12" position="-0.00 0.5 3.85" scale="1 1 1" look-at="[camera]" hotspot-behavior class="clickable">
-            <a-text value="🤖" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+          <a-circle color="#CC0000" radius="0.12" position="-0.00 0.5 3.85" scale="1 1 1" look-at="[camera]" hotspot-behavior info-panel class="clickable">
+            <a-text value="R" align="center" width="4" position="0 0 0.05"></a-text>
+            <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            
             <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Brazo Robot" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+
+            <a-entity class="popup-content" visible="false" position="0 0.8 0.1">
+                <a-plane color="#111" opacity="0.95" width="1.8" height="1.4"></a-plane>
+                <a-plane class="close-btn" color="#AA0000" width="0.25" height="0.25" position="0.7 0.55 0.02"><a-text value="X" align="center" width="6"></a-text></a-plane>
+                <a-text value="ESPECIFICACIONES\n\n Pertenece a: FabLab\nGrados Libertad: 6 Ejes\nCarga Util: 3kg\nAlcance Max: 500mm\nPrecision: +/- 0.1mm\nInterfaz: ROS / Python" 
+                        align="left" width="1.6" position="-0.75 0 0.02" wrap-count="25"></a-text>
+            </a-entity>
           </a-circle>
 
-          <a-circle color="#CC0000" radius="0.12" position="-1.47 0.1 -3.85" scale="1 1 1" look-at="[camera]" hotspot-behavior class="clickable">
-            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+          <a-circle color="#CC0000" radius="0.12" position="-1.47 0.1 -3.85" scale="1 1 1" look-at="[camera]" hotspot-behavior info-panel class="clickable">
+            <a-text value="+" align="center" width="4" position="0 0 0.05"></a-text>
+            <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            
             <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+
+            <a-entity class="popup-content" visible="false" position="0 0.8 0.1">
+                <a-plane color="#111" opacity="0.95" width="1.8" height="1.4"></a-plane>
+                <a-plane class="close-btn" color="#AA0000" width="0.25" height="0.25" position="0.7 0.55 0.02"><a-text value="X" align="center" width="6"></a-text></a-plane>
+                <a-text value="ESPECIFICACIONES\n\n Pertenece a: Trabajador\nModelo: Dell Latitude\nProcesador: Intel Core i7 vPro\nRAM: 32 GB\nAlmacenamiento: 1TB SSD\nGrafica: Intel Iris Xe" 
+                        align="left" width="1.6" position="-0.75 0 0.02" wrap-count="25"></a-text>
+            </a-entity>
           </a-circle>
 
-          <a-circle color="#CC0000" radius="0.12" position="-0.14 0.7 -3.85" scale="1 1 1" look-at="[camera]" hotspot-behavior class="clickable">
-            <a-text value="💻" align="center" width="2.5" position="0 0 0.05"></a-text><a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+          <a-circle color="#CC0000" radius="0.12" position="-0.14 0.7 -3.85" scale="1 1 1" look-at="[camera]" hotspot-behavior info-panel class="clickable">
+            <a-text value="+" align="center" width="4" position="0 0 0.05"></a-text>
+            <a-ring color="white" radius-inner="0.10" radius-outer="0.12" position="0 0 0.01"></a-ring>
+            
             <a-entity class="tooltip" position="0 0.25 0" visible="false"><a-plane color="#000" opacity="0.8" width="1.0" height="0.3"></a-plane><a-text value="Laptop Dell" align="center" width="2.3" position="0 0 0.02"></a-text></a-entity>
+
+            <a-entity class="popup-content" visible="false" position="0 0.8 0.1">
+                <a-plane color="#111" opacity="0.95" width="1.8" height="1.4"></a-plane>
+                <a-plane class="close-btn" color="#AA0000" width="0.25" height="0.25" position="0.7 0.55 0.02"><a-text value="X" align="center" width="6"></a-text></a-plane>
+                <a-text value="ESPECIFICACIONES\n\n Pertenece a: Trabajador\nModelo: Dell Vostro\nProcesador: Intel Core i3\nRAM: 8 GB\nAlmacenamiento: 128GB SSD\nGrafica: Intel UHD Graphics" 
+                        align="left" width="1.6" position="-0.75 0 0.02" wrap-count="25"></a-text>
+            </a-entity>
           </a-circle>
 
       </a-entity> 
 
-
       <a-entity id="grupo-entrada" visible="false">
           <a-entity position="-1.30 1.50 -3.50" look-at="[camera]">
-              <a-entity position="0 0.28 0">
-                  <a-plane color="#000000" opacity="0.8" width="0.9" height="0.22" shader="flat"></a-plane>
-                  <a-text class="banner-text" value="Volver al FabLab" font="roboto" align="center" color="#FFFFFF" width="6" wrap-count="30" scale="0.25 0.25 0.25" position="0 0 0.02"></a-text>
-              </a-entity>
-              <a-entity position="0 0 0" scale="1 1 1">
-                  <a-circle color="white" radius="0.16" position="0 0 -0.01" shader="flat"></a-circle>
-                  <a-circle src="#thumb-fablab" radius="0.14" position="0 0 0" class="clickable" hotspot-behavior transition-to-image="target: #img-fablab; groupToHide: #grupo-entrada; groupToShow: #grupo-fablab"></a-circle>
-                  <a-triangle color="white" vertex-a="0 -0.22 0" vertex-b="-0.05 -0.1 0" vertex-c="0.05 -0.1 0" position="0 0 -0.01" shader="flat"></a-triangle>
-              </a-entity>
+              <a-entity position="0 0.28 0"><a-plane color="#000000" opacity="0.8" width="0.9" height="0.22" shader="flat"></a-plane><a-text class="banner-text" value="Volver al FabLab" font="roboto" align="center" color="#FFFFFF" width="6" wrap-count="30" scale="0.25 0.25 0.25" position="0 0 0.02"></a-text></a-entity>
+              <a-entity position="0 0 0" scale="1 1 1"><a-circle color="white" radius="0.16" position="0 0 -0.01" shader="flat"></a-circle><a-circle src="#thumb-fablab" radius="0.14" position="0 0 0" class="clickable" hotspot-behavior transition-to-image="target: #img-fablab; groupToHide: #grupo-entrada; groupToShow: #grupo-fablab"></a-circle></a-entity>
           </a-entity>
       </a-entity>
 
-
       <a-entity id="grupo-trabajo" visible="false">
-          <a-entity position="-3.15 1.20 4.00" look-at="[camera]"> 
-              <a-entity position="0 0.28 0">
-                  <a-plane color="#000000" opacity="0.8" width="0.9" height="0.22" shader="flat"></a-plane>
-                  <a-text class="banner-text" value="Volver al FabLab" font="roboto" align="center" color="#FFFFFF" width="6" wrap-count="30" scale="0.25 0.25 0.25" position="0 0 0.02"></a-text>
-              </a-entity>
-              <a-entity position="0 0 0" scale="1 1 1">
-                  <a-circle color="white" radius="0.16" position="0 0 -0.01" shader="flat"></a-circle>
-                  <a-circle src="#thumb-fablab" radius="0.14" position="0 0 0" class="clickable" hotspot-behavior transition-to-image="target: #img-fablab; groupToHide: #grupo-trabajo; groupToShow: #grupo-fablab"></a-circle>
-                  <a-triangle color="white" vertex-a="0 -0.22 0" vertex-b="-0.05 -0.1 0" vertex-c="0.05 -0.1 0" position="0 0 -0.01" shader="flat"></a-triangle>
-              </a-entity>
+          <a-entity position="-2.74 1.50 -2.70" look-at="[camera]"> 
+              <a-entity position="0 0.28 0"><a-plane color="#000000" opacity="0.8" width="0.9" height="0.22" shader="flat"></a-plane><a-text class="banner-text" value="Volver al FabLab" font="roboto" align="center" color="#FFFFFF" width="6" wrap-count="30" scale="0.25 0.25 0.25" position="0 0 0.02"></a-text></a-entity>
+              <a-entity position="0 0 0" scale="1 1 1"><a-circle color="white" radius="0.16" position="0 0 -0.01" shader="flat"></a-circle><a-circle src="#thumb-fablab" radius="0.14" position="0 0 0" class="clickable" hotspot-behavior transition-to-image="target: #img-fablab; groupToHide: #grupo-trabajo; groupToShow: #grupo-fablab"></a-circle></a-entity>
           </a-entity>
       </a-entity>
 
     </a-scene>
   </body>
 </html>
-
